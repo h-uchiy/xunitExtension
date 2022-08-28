@@ -21,10 +21,16 @@
     "index": 1,
     "value": "FromObjectTestValue"
   },
-  "InlineDataTest": {
+  "InlineDataWithObjectTest": {
     "fromJsonIndex": 101,
     "fromJsonValue": "InlineDataTestValue"
   },
+  "InlineDataWithArrayTest": [
+    {
+      "fromJsonIndex": 101,
+      "fromJsonValue": "InlineDataTestValue"
+    }
+  ],
   "VariousParameterTypesTest": {
     "param1": "param1",
     "param2": 1234567890123456789,

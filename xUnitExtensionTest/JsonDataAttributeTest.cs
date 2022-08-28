@@ -118,7 +118,17 @@ public class JsonDataAttributeTest
     [Theory]
     [JsonData(1, "FromInlineData1")]
     [JsonData(2, "FromInlineData2")]
-    public void InlineDataTest(int index, string value, int fromJsonIndex, string fromJsonValue)
+    public void InlineDataWithObjectTest(int index, string value, int fromJsonIndex, string fromJsonValue)
+    {
+        Assert.Equal($"FromInlineData{index}", value);
+        Assert.Equal(101, fromJsonIndex);
+        Assert.Equal("InlineDataTestValue", fromJsonValue);
+    }
+
+    [Theory]
+    [JsonData(1, "FromInlineData1")]
+    [JsonData(2, "FromInlineData2")]
+    public void InlineDataWithArrayTest(int index, string value, int fromJsonIndex, string fromJsonValue)
     {
         Assert.Equal($"FromInlineData{index}", value);
         Assert.Equal(101, fromJsonIndex);

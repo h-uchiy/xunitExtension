@@ -61,15 +61,12 @@ namespace xUnitExtension
 
         public override IEnumerable<object?[]> GetData(MethodInfo testMethod)
         {
-            string key = _key ?? testMethod.Name;
-            using var stream = GetStream(testMethod.DeclaringType ?? throw new ArgumentException("DeclaringType is null", nameof(testMethod)));
+            var key = _key ?? testMethod.Name;
+            using var stream = GetStream(testMethod.DeclaringType ??
+                                         throw new ArgumentException("DeclaringType is null", nameof(testMethod)));
             using var streamReader = new StreamReader(stream);
             using var jsonReader = new JsonTextReader(streamReader);
-            var rootJToken = JToken.Load(jsonReader)[key];
-            if (rootJToken == null)
-            {
-                throw new InvalidOperationException($"{key} was not found in the JSON root.");
-            }
+            var rootJToken = JToken.Load(jsonReader);
 
             object?[] PopulateTestMethodParameters(IEnumerable<ParameterInfo> parameters, JToken jObject) =>
                 _inlineData.Concat(from parameter in parameters.Skip(_inlineData.Length)
@@ -77,23 +74,26 @@ namespace xUnitExtension
                     from jProperty in gj.DefaultIfEmpty()
                     select jProperty?.Value.ToObject(parameter.ParameterType)).ToArray();
 
-            return rootJToken switch
+            return rootJToken[key] switch
             {
-                JArray jArray => jArray.Children().OfType<JObject>().Select(x => PopulateTestMethodParameters(testMethod.GetParameters(), x)),
-                JObject jObject => new []{PopulateTestMethodParameters(testMethod.GetParameters(), jObject)},
-                _ => Enumerable.Empty<object?[]>()
+                JArray jArray => jArray.Children()
+                    .Select(x => PopulateTestMethodParameters(testMethod.GetParameters(), x)),
+                JObject jObject => new[] { PopulateTestMethodParameters(testMethod.GetParameters(), jObject) },
+                null => throw new InvalidOperationException($"'{key}' was not found in the JSON root."),
+                _ =>  throw new InvalidOperationException($"value of property '{key}' must be array or object."),
             };
         }
 
         private Stream GetStream(Type declaringType)
         {
             if (declaringType.FullName == null) throw new ArgumentException("FullName is null", nameof(declaringType));
-            
+
             Stream? TryToLoadFromResource()
             {
                 var resourceName = FileName ?? declaringType.FullName;
                 return declaringType.Assembly.GetManifestResourceNames().Any(x => x == resourceName)
-                    ? declaringType.Assembly.GetManifestResourceStream(resourceName) : null;
+                    ? declaringType.Assembly.GetManifestResourceStream(resourceName)
+                    : null;
             }
 
             string GetFileName() =>
