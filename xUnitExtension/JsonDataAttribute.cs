@@ -1,4 +1,6 @@
-﻿using System;
+﻿#nullable enable
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -61,19 +63,20 @@ namespace xUnitExtension
 
         public override IEnumerable<object?[]> GetData(MethodInfo testMethod)
         {
+            object?[] PopulateTestMethodParameters(IEnumerable<ParameterInfo> parameters, JToken jObject)
+            {
+                var parameterValues = jObject.Children().OfType<JProperty>().Append(new("key", _key));
+                return _inlineData.Concat(from parameter in parameters.Skip(_inlineData.Length)
+                        join jProperty in parameterValues on parameter.Name equals jProperty.Name into gj
+                        from jProperty in gj.DefaultIfEmpty()
+                        select jProperty?.Value.ToObject(parameter.ParameterType))
+                    .ToArray();
+            }
+
             var key = _key ?? testMethod.Name;
-            using var stream = GetStream(testMethod.DeclaringType ??
-                                         throw new ArgumentException("DeclaringType is null", nameof(testMethod)));
-            using var streamReader = new StreamReader(stream);
-            using var jsonReader = new JsonTextReader(streamReader);
-            var rootJToken = JToken.Load(jsonReader);
-
-            object?[] PopulateTestMethodParameters(IEnumerable<ParameterInfo> parameters, JToken jObject) =>
-                _inlineData.Concat(from parameter in parameters.Skip(_inlineData.Length)
-                    join jProperty in jObject.Children().OfType<JProperty>() on parameter.Name equals jProperty.Name into gj
-                    from jProperty in gj.DefaultIfEmpty()
-                    select jProperty?.Value.ToObject(parameter.ParameterType)).ToArray();
-
+            var rootJToken = LoadJson(
+                testMethod.DeclaringType ?? throw new ArgumentException("DeclaringType is null", nameof(testMethod)),
+                this.FileName);
             return rootJToken[key] switch
             {
                 JArray jArray => jArray.Children()
@@ -84,21 +87,29 @@ namespace xUnitExtension
             };
         }
 
-        private Stream GetStream(Type declaringType)
+        private static JToken LoadJson(Type declaringType, string? fileName)
+        {
+            using var stream = GetStream(declaringType, fileName);
+            using var streamReader = new StreamReader(stream);
+            using var jsonReader = new JsonTextReader(streamReader);
+            return JToken.Load(jsonReader);
+        }
+
+        private static Stream GetStream(Type declaringType, string? fileName)
         {
             if (declaringType.FullName == null) throw new ArgumentException("FullName is null", nameof(declaringType));
 
             Stream? TryToLoadFromResource()
             {
-                var resourceName = FileName ?? declaringType.FullName;
+                var resourceName = fileName ?? declaringType.FullName;
                 return declaringType.Assembly.GetManifestResourceNames().Any(x => x == resourceName)
                     ? declaringType.Assembly.GetManifestResourceStream(resourceName)
                     : null;
             }
 
             string GetFileName() =>
-                FileName != null
-                    ? Path.HasExtension(FileName) ? FileName : $"{FileName}.json"
+                fileName != null
+                    ? Path.HasExtension(fileName) ? fileName : $"{fileName}.json"
                     : $"{declaringType.FullName}.json";
 
             return TryToLoadFromResource() ?? File.OpenRead(GetFileName());

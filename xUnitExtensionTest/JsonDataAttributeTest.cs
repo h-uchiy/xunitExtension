@@ -50,6 +50,15 @@ public class JsonDataAttributeTest
         Assert.Equal("KeyTestValue", value);
     }
 
+    [Theory]
+    [JsonData("KeyName")]
+    public void KeyTest2(string key, int index, string value)
+    {
+        Assert.Equal("KeyName", key);
+        Assert.Equal(1, index);
+        Assert.Equal("KeyTestValue", value);
+    }
+
     [Fact]
     public void KeyNotFoundTest()
     {
@@ -139,7 +148,7 @@ public class JsonDataAttributeTest
     {
         private sealed class TestDataEqualityComparer : IEqualityComparer<TestData>
         {
-            public bool Equals(TestData x, TestData y)
+            public bool Equals(TestData? x, TestData? y)
             {
                 if (ReferenceEquals(x, y)) return true;
                 if (ReferenceEquals(x, null)) return false;
